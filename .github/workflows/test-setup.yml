@@ -7,34 +7,75 @@ jobs:
   test:
     name: macOS ARM64
     runs-on: macos-15
-
     timeout-minutes: 90
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run setup script
-        run: bash setup-dev.sh
+      - name: Configure mise PATH
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.local/share/mise/shims" >> "$GITHUB_PATH"
 
-      - name: Verify installation
+      - name: Run setup script
         shell: bash
         run: |
           set -euo pipefail
 
-          MISE="$HOME/.local/bin/mise"
+          export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
 
-          "$MISE" doctor
-          "$MISE" ls
+          bash setup-dev.sh
 
-          "$MISE" exec -- bash -c '
-            set -e
-            test "$(node --version)" = "v24.21.0"
-            elixir --version
-            psql --version
+      - name: Verify mise installation
+        shell: bash
+        run: |
+          set -euo pipefail
 
-            pg_isready -h /tmp -p 5432
+          mise --version
+          mise ls
 
-            psql -h /tmp -d "$(id -un)" \
-              -c "SELECT version();"
-          '
+      - name: Verify Erlang
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mise exec -- erl -noshell \
+            -eval 'io:format("~s~n", [erlang:system_info(system_version)]), halt().'
+
+      - name: Verify Elixir
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mise exec -- elixir --version
+
+      - name: Verify Node.js
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION=$(mise exec -- node --version)
+          echo "Node.js: $VERSION"
+
+          test "$VERSION" = "v24.21.0"
+
+      - name: Verify PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mise exec -- psql --version
+
+          mise exec -- pg_isready -h /tmp -p 5432
+
+          mise exec -- psql \
+            -h /tmp \
+            -d "$(whoami)" \
+            -c "SELECT version();"
+
+      - name: Show final installed versions
+        shell: bash
+        run: |
+          mise ls
+          echo "All verification steps passed!"
