@@ -32,6 +32,8 @@ else
 fi
 
 "$MISE_BIN" --version
+# Make mise available in non-interactive environments
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
 
 # 2. Configure Zsh
 log "Configuring Zsh"
