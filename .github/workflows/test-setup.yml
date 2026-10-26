@@ -1,0 +1,40 @@
+name: Test macOS Development Setup
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: macOS ARM64
+    runs-on: macos-15
+
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run setup script
+        run: bash setup-dev.sh
+
+      - name: Verify installation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MISE="$HOME/.local/bin/mise"
+
+          "$MISE" doctor
+          "$MISE" ls
+
+          "$MISE" exec -- bash -c '
+            set -e
+            test "$(node --version)" = "v24.21.0"
+            elixir --version
+            psql --version
+
+            pg_isready -h /tmp -p 5432
+
+            psql -h /tmp -d "$(id -un)" \
+              -c "SELECT version();"
+          '
